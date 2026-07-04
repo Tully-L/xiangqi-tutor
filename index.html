@@ -220,6 +220,25 @@
   .coach-actions button:hover { background: var(--red); color: #fdf8ec; }
   .coach-actions button:disabled { opacity: .4; pointer-events: none; }
 
+  .lesson-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 12px 18px 0;
+  }
+  .lesson-tab {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid #d8cbb0;
+    background: none;
+    color: var(--ink-soft);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .lesson-tab.done { border-color: #3d8b4f; color: #3d8b4f; }
+  .lesson-tab.active { border-color: var(--red); background: var(--red); color: #fdf8ec; }
+  .lesson-tab.locked { opacity: .35; pointer-events: none; }
+
   footer {
     text-align: center;
     color: var(--ink-soft);
@@ -265,6 +284,30 @@
   <div class="cards" id="cards"></div>
 </section>
 
+<section id="lessons-section">
+  <h2>闯关学棋</h2>
+  <p class="section-note">六关从吃子到擒王，每关一个小目标，走错了教练会告诉你为什么。通关之后，你就有本事去赢下面那盘整局了。</p>
+  <div class="play-area">
+    <div class="board-wrap" id="lesson-board"></div>
+    <div class="coach-panel">
+      <div class="coach-head">
+        <div class="coach-avatar">课</div>
+        <div>
+          <div class="who" id="lesson-title">闯关学棋</div>
+          <div class="status" id="lesson-goal"></div>
+        </div>
+      </div>
+      <div class="lesson-tabs" id="lesson-tabs"></div>
+      <div class="coach-msgs" id="lesson-msgs"></div>
+      <div class="coach-actions">
+        <button id="lesson-hint">提 示</button>
+        <button id="lesson-retry">重 来</button>
+        <button id="lesson-next" style="display:none">下一关 →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="play-section">
   <h2>跟教练下一局</h2>
   <p class="section-note">你执红，教练执黑。教练会边下边讲：哪步好、哪步危险、下一步可以怎么走。</p>
@@ -295,6 +338,7 @@
 <script type="module">
 import { initialBoard, legalMoves } from './engine.js';
 import { bestMove, allMoves } from './ai.js';
+import { LESSONS } from './lessons.js';
 
 const CHARS = {
   red:   { general: '帅', advisor: '仕', elephant: '相', horse: '马', rook: '车', cannon: '炮', pawn: '兵' },
@@ -468,6 +512,115 @@ for (const d of DEMOS) {
   wrap.appendChild(btn);
   btn.addEventListener('click', () => api.reset(d.setup()));
 }
+
+// —— 闯关学棋 ——
+const lMsgs = document.getElementById('lesson-msgs');
+const lTitle = document.getElementById('lesson-title');
+const lGoal = document.getElementById('lesson-goal');
+const lTabs = document.getElementById('lesson-tabs');
+const btnLHint = document.getElementById('lesson-hint');
+const btnLRetry = document.getElementById('lesson-retry');
+const btnLNext = document.getElementById('lesson-next');
+
+function lsay(html, tone = '') {
+  const div = document.createElement('div');
+  div.className = 'msg coach ' + tone;
+  div.innerHTML = html;
+  lMsgs.appendChild(div);
+  lMsgs.scrollTop = lMsgs.scrollHeight;
+}
+
+let li = 0;
+let unlocked = Math.min(+(localStorage.getItem('xq-progress') || 0), LESSONS.length - 1);
+let lThinking = false, lWon = false, lMoveCount = 0;
+const lesson = () => LESSONS[li];
+
+const lb = makeBoard(document.getElementById('lesson-board'), LESSONS[0].setup(), {
+  locked: () => lThinking || lWon,
+  canSelect: p => p.color === 'red',
+  onMove: (moved, captured, from, to) => {
+    lMoveCount++;
+    const res = lesson().check(lb.state.board, { moved, captured, from, to }, lMoveCount);
+    if (res.result === 'win') return lessonWin(res.msg);
+    if (res.result === 'retry') {
+      lb.state.board[from[1]][from[0]] = moved;
+      lb.state.board[to[1]][to[0]] = captured ?? null;
+      lb.render();
+      lsay(res.msg, 'warn');
+      return;
+    }
+    if (res.msg) lsay(res.msg, 'praise');
+    if (lesson().ai) lessonAiReply();
+  },
+});
+
+function lessonAiReply() {
+  lThinking = true;
+  lGoal.textContent = '黑方思考中…';
+  setTimeout(() => {
+    const m = bestMove(lb.state.board, 'black', 2);
+    lThinking = false;
+    lGoal.textContent = '目标：' + lesson().goal;
+    if (!m) return;
+    const { captured } = lb.applyMove(m.from, m.to);
+    if (captured?.type === 'general') {
+      lsay('哎呀，你的帅被吃了！没关系，马上重摆，再试一次。', 'warn');
+      setTimeout(() => { loadLesson(li, false); lsay('重摆好了。这次记住：自己的帅也要看住。'); }, 1600);
+      return;
+    }
+    if (captured) lsay(`黑方吃掉了你的<b>${CHARS.red[captured.type]}</b>，小心！`, 'warn');
+  }, 350);
+}
+
+function lessonWin(msg) {
+  lWon = true;
+  lsay(msg, 'praise');
+  if (li + 1 > unlocked) {
+    unlocked = li + 1;
+    localStorage.setItem('xq-progress', unlocked);
+  }
+  renderTabs();
+  if (li < LESSONS.length - 1) btnLNext.style.display = '';
+  else lsay('六关全部通关！向下滚动，去「跟教练下一局」检验你的成果。', 'praise');
+}
+
+function renderTabs() {
+  lTabs.innerHTML = '';
+  LESSONS.forEach((L, i) => {
+    const b = document.createElement('button');
+    const locked = i > unlocked;
+    b.className = 'lesson-tab' + (i === li ? ' active' : '') + (i < unlocked ? ' done' : '') + (locked ? ' locked' : '');
+    b.textContent = i < unlocked && i !== li ? '✓' : (i + 1);
+    b.title = L.title;
+    b.addEventListener('click', () => loadLesson(i));
+    lTabs.appendChild(b);
+  });
+}
+
+function loadLesson(i, announce = true) {
+  li = i;
+  lWon = false;
+  lThinking = false;
+  lMoveCount = 0;
+  lb.reset(lesson().setup());
+  lTitle.textContent = lesson().title;
+  lGoal.textContent = '目标：' + lesson().goal;
+  btnLNext.style.display = 'none';
+  renderTabs();
+  if (announce) lsay(lesson().intro);
+}
+
+btnLHint.addEventListener('click', () => {
+  if (lThinking || lWon) return;
+  const h = lesson().hint(lb.state.board);
+  if (!h?.from) return;
+  lb.mark([h.from, h.to]);
+  lsay(h.text);
+});
+btnLRetry.addEventListener('click', () => { loadLesson(li, false); lsay('重摆好了，再来一次。'); });
+btnLNext.addEventListener('click', () => loadLesson(li + 1));
+
+loadLesson(Math.min(unlocked, LESSONS.length - 1));
 
 // —— 跟教练下一局 ——
 const msgsEl = document.getElementById('coach-msgs');
