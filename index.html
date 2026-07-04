@@ -222,11 +222,12 @@
 
   .lesson-tabs {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 7px;
     padding: 12px 18px 0;
   }
   .lesson-tab {
-    width: 34px; height: 34px;
+    width: 30px; height: 30px;
     border-radius: 50%;
     border: 1.5px solid #d8cbb0;
     background: none;
@@ -238,6 +239,40 @@
   .lesson-tab.done { border-color: #3d8b4f; color: #3d8b4f; }
   .lesson-tab.active { border-color: var(--red); background: var(--red); color: #fdf8ec; }
   .lesson-tab.locked { opacity: .35; pointer-events: none; }
+
+  .music-btn {
+    position: fixed;
+    right: 22px; bottom: 22px;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 1.5px solid var(--red);
+    background: #fffdf8;
+    color: var(--red);
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    z-index: 10;
+    transition: all .15s;
+  }
+  .music-btn.on { background: var(--red); color: #fdf8ec; }
+
+  .difficulty {
+    margin-left: auto;
+    display: flex;
+    border: 1px solid #d8cbb0;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .difficulty button {
+    border: none;
+    background: none;
+    padding: 4px 11px;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .difficulty button.on { background: var(--red); color: #fdf8ec; }
 
   footer {
     text-align: center;
@@ -286,7 +321,7 @@
 
 <section id="lessons-section">
   <h2>闯关学棋</h2>
-  <p class="section-note">六关从吃子到擒王，每关一个小目标，走错了教练会告诉你为什么。通关之后，你就有本事去赢下面那盘整局了。</p>
+  <p class="section-note">九关从吃子到擒王：学走子（1–5）、学算账和赚子（6–7）、学开局（8）、学收官（9）。走错了教练会告诉你为什么。通关之后，去下面用「新手」难度赢你的第一盘整局。</p>
   <div class="play-area">
     <div class="board-wrap" id="lesson-board"></div>
     <div class="coach-panel">
@@ -320,6 +355,10 @@
           <div class="who">棋教练</div>
           <div class="status" id="coach-status">执黑 · 等你先走</div>
         </div>
+        <div class="difficulty" id="difficulty">
+          <button data-d="1" class="on">新手</button>
+          <button data-d="3">进阶</button>
+        </div>
       </div>
       <div class="coach-msgs" id="coach-msgs"></div>
       <div class="coach-actions">
@@ -335,10 +374,13 @@
 
 <footer>象棋入门 · 纯静态单页 · 规则与 AI 引擎经测试驱动开发 · <a href="https://github.com/Tully-L/xiangqi-tutor">GitHub</a></footer>
 
+<button class="music-btn" id="btn-music" title="配乐 开/关">♪</button>
+
 <script type="module">
 import { initialBoard, legalMoves } from './engine.js';
 import { bestMove, allMoves } from './ai.js';
 import { LESSONS } from './lessons.js';
+import { sfx, music } from './sounds.js';
 
 const CHARS = {
   red:   { general: '帅', advisor: '仕', elephant: '相', horse: '马', rook: '车', cannon: '炮', pawn: '兵' },
@@ -419,6 +461,7 @@ function makeBoard(container, board, opts = {}) {
         state.board[sy][sx] = null;
         state.selected = null;
         render();
+        captured ? sfx.capture() : sfx.move();
         opts.onMove?.(moved, captured, [sx, sy], [x, y]);
         return;
       }
@@ -426,6 +469,7 @@ function makeBoard(container, board, opts = {}) {
     const p = state.board[y][x];
     if (p && (!opts.canSelect || opts.canSelect(p))) {
       state.selected = [x, y];
+      sfx.select();
       opts.onSelect?.(p, x, y);
     } else {
       state.selected = null;
@@ -447,6 +491,7 @@ function makeBoard(container, board, opts = {}) {
       state.marks = [from, to];
       state.selected = null;
       render();
+      captured ? sfx.capture() : sfx.move();
       return { moved, captured };
     },
   };
@@ -528,6 +573,7 @@ function lsay(html, tone = '') {
   div.innerHTML = html;
   lMsgs.appendChild(div);
   lMsgs.scrollTop = lMsgs.scrollHeight;
+  if (tone === 'warn') sfx.warn();
 }
 
 let li = 0;
@@ -550,7 +596,15 @@ const lb = makeBoard(document.getElementById('lesson-board'), LESSONS[0].setup()
       return;
     }
     if (res.msg) lsay(res.msg, 'praise');
-    if (lesson().ai) lessonAiReply();
+    if (lesson().ai) {
+      lessonAiReply();
+    } else if (lesson().reply) {
+      const r = lesson().reply(lMoveCount);
+      if (r) {
+        lThinking = true;
+        setTimeout(() => { lb.applyMove(r.from, r.to); lThinking = false; }, 420);
+      }
+    }
   },
 });
 
@@ -564,6 +618,7 @@ function lessonAiReply() {
     if (!m) return;
     const { captured } = lb.applyMove(m.from, m.to);
     if (captured?.type === 'general') {
+      sfx.lose();
       lsay('哎呀，你的帅被吃了！没关系，马上重摆，再试一次。', 'warn');
       setTimeout(() => { loadLesson(li, false); lsay('重摆好了。这次记住：自己的帅也要看住。'); }, 1600);
       return;
@@ -574,6 +629,7 @@ function lessonAiReply() {
 
 function lessonWin(msg) {
   lWon = true;
+  sfx.win();
   lsay(msg, 'praise');
   if (li + 1 > unlocked) {
     unlocked = li + 1;
@@ -581,7 +637,7 @@ function lessonWin(msg) {
   }
   renderTabs();
   if (li < LESSONS.length - 1) btnLNext.style.display = '';
-  else lsay('六关全部通关！向下滚动，去「跟教练下一局」检验你的成果。', 'praise');
+  else lsay('九关全部通关！向下滚动，去「跟教练下一局」——用新手难度赢下你人生第一盘完整的象棋。', 'praise');
 }
 
 function renderTabs() {
@@ -612,7 +668,7 @@ function loadLesson(i, announce = true) {
 
 btnLHint.addEventListener('click', () => {
   if (lThinking || lWon) return;
-  const h = lesson().hint(lb.state.board);
+  const h = lesson().hint(lb.state.board, lMoveCount);
   if (!h?.from) return;
   lb.mark([h.from, h.to]);
   lsay(h.text);
@@ -635,6 +691,7 @@ function say(html, tone = '') {
   div.innerHTML = html;
   msgsEl.appendChild(div);
   msgsEl.scrollTop = msgsEl.scrollHeight;
+  if (tone === 'warn') sfx.warn();
 }
 
 const RULE_TIPS = {
@@ -675,6 +732,7 @@ const play = makeBoard(document.getElementById('play-board'), initialBoard(), {
 
 function endGame(winner) {
   gameOver = true;
+  winner === 'red' ? sfx.win() : sfx.lose();
   setStatus(winner === 'red' ? '你赢了！' : '教练获胜');
   say(winner === 'red'
     ? '你赢了，我的将被吃掉了！<b>出师了</b>——去找真人下一局吧。'
@@ -682,11 +740,22 @@ function endGame(winner) {
     winner === 'red' ? 'praise' : 'warn');
 }
 
+let aiDepth = 1; // 新手难度:教练只看一步
+document.querySelectorAll('#difficulty button').forEach(b => {
+  b.addEventListener('click', () => {
+    aiDepth = +b.dataset.d;
+    document.querySelectorAll('#difficulty button').forEach(x => x.classList.toggle('on', x === b));
+    say(aiDepth === 1
+      ? '换成<b>新手</b>难度：我只看眼前一步，破绽很多，放心进攻。'
+      : '换成<b>进阶</b>难度：我会往后算三步了，走子前多想想。');
+  });
+});
+
 function aiTurn() {
   thinking = true;
   setStatus('教练思考中…');
   setTimeout(() => {
-    const m = bestMove(play.state.board, 'black', 3);
+    const m = bestMove(play.state.board, 'black', aiDepth);
     if (!m) { endGame('red'); thinking = false; return; }
     const { moved, captured } = play.applyMove(m.from, m.to);
     history.push({ from: m.from, to: m.to, moved, captured });
@@ -754,8 +823,16 @@ btnRestart.addEventListener('click', () => {
   say('重新开局。你执红先走，这次试试自己布局！');
 });
 
-say('你好，我是你的棋教练，这局你执<b>红</b>，我执黑。你先走。');
-say('不知道动哪个？点下面的【<b>提示</b>】，我把好棋指给你看；走错了还可以【悔棋】。');
+say('你好，我是你的棋教练，这局你执<b>红</b>，我执黑。现在是<b>新手</b>难度——我只看一步，用你在闯关里学的招数放心打。');
+say('不知道动哪个？点下面的【<b>提示</b>】，我把好棋指给你看；走错了还可以【悔棋】。赢过我之后，右上角切【进阶】试试。');
+
+// —— 配乐开关 ——
+const btnMusic = document.getElementById('btn-music');
+btnMusic.addEventListener('click', () => {
+  const on = music.toggle();
+  btnMusic.classList.toggle('on', on);
+  btnMusic.title = on ? '配乐 开(点击关闭)' : '配乐 关(点击开启)';
+});
 </script>
 
 </body>
