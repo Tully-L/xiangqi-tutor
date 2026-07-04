@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>象棋入门 · 一页学会中国象棋</title>
+<title>象棋入门 · 跟着 AI 教练学下棋</title>
 <style>
   :root {
     --paper: #f7f2e8;
@@ -13,6 +13,7 @@
     --red: #b23a2f;
     --line: #8a7a63;
     --wood: #f3e8d2;
+    --hint: #d9822b;
     --shadow: 0 2px 14px rgba(43, 38, 32, .10);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,7 +23,7 @@
     font-family: "Songti SC", "Noto Serif SC", "SimSun", serif;
     line-height: 1.8;
   }
-  main { max-width: 960px; margin: 0 auto; padding: 0 24px 96px; }
+  main { max-width: 1020px; margin: 0 auto; padding: 0 24px 96px; }
 
   header {
     text-align: center;
@@ -105,7 +106,6 @@
     color: var(--red);
     font-weight: 700;
   }
-  .card-head .zi.black-zi { color: var(--ink); }
   .card-head .mnemonic {
     color: var(--ink-soft);
     font-size: 14px;
@@ -130,33 +130,95 @@
   }
   .reset-btn:hover { color: var(--red); border-color: var(--red); }
 
+  /* —— 教练对战 —— */
   .play-area {
     margin-top: 28px;
     display: flex;
-    gap: 36px;
-    align-items: flex-start;
+    gap: 28px;
+    align-items: stretch;
     flex-wrap: wrap;
   }
   .play-area .board-wrap { flex: 0 0 min(520px, 100%); }
-  .play-side { flex: 1; min-width: 240px; }
-  .turn-badge {
-    display: inline-block;
-    padding: 8px 22px;
-    border-radius: 999px;
-    font-size: 16px;
-    letter-spacing: .2em;
+  .coach-panel {
+    flex: 1;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    background: #fffdf8;
+    border: 1px solid #e5dac4;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    max-height: 640px;
+  }
+  .coach-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #eee3cd;
+    background: var(--paper-deep);
+  }
+  .coach-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fdf8ec;
+    font-family: "Kaiti SC", "KaiTi", serif;
+    font-size: 22px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .coach-head .who { font-size: 16px; letter-spacing: .1em; }
+  .coach-head .status { font-size: 12.5px; color: var(--ink-soft); }
+  .coach-msgs {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .msg {
+    max-width: 92%;
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-size: 14.5px;
+    line-height: 1.7;
+    animation: pop .18s ease-out;
+  }
+  .msg.coach {
+    background: var(--paper-deep);
+    border: 1px solid #e5dac4;
+    align-self: flex-start;
+    border-top-left-radius: 3px;
+  }
+  .msg.coach.warn { border-color: var(--red); background: #f9e9e3; }
+  .msg.coach.praise { border-color: #3d8b4f; background: #e9f2e8; }
+  .msg b { color: var(--red); font-weight: 600; }
+  @keyframes pop { from { opacity: 0; transform: translateY(5px); } }
+  .coach-actions {
+    display: flex;
+    gap: 10px;
+    padding: 14px 18px;
+    border-top: 1px solid #eee3cd;
+  }
+  .coach-actions button {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 8px;
     border: 1.5px solid var(--red);
+    background: none;
     color: var(--red);
-    transition: all .2s;
-  }
-  .turn-badge.black-turn { border-color: var(--ink); color: var(--ink); }
-  .play-side ol {
-    margin-top: 22px;
-    padding-left: 20px;
-    color: var(--ink-soft);
+    font-family: inherit;
     font-size: 15px;
+    letter-spacing: .15em;
+    cursor: pointer;
+    transition: all .15s;
   }
-  .play-side ol li { margin-bottom: 8px; }
+  .coach-actions button:hover { background: var(--red); color: #fdf8ec; }
+  .coach-actions button:disabled { opacity: .4; pointer-events: none; }
 
   footer {
     text-align: center;
@@ -165,10 +227,12 @@
     padding: 40px 0 48px;
     letter-spacing: .1em;
   }
+  footer a { color: var(--ink-soft); }
 
   @media (max-width: 640px) {
     header { padding: 56px 16px 36px; }
     section { margin-top: 56px; }
+    .coach-panel { max-height: 420px; }
   }
 </style>
 </head>
@@ -176,7 +240,7 @@
 
 <header>
   <h1>象<span class="accent">棋</span>入门</h1>
-  <p>棋盘、七子、走法 —— 一页学会中国象棋</p>
+  <p>棋盘、七子、走法，再跟 AI 教练下一局 —— 一页学会中国象棋</p>
   <div class="rule-line"></div>
 </header>
 
@@ -202,32 +266,41 @@
 </section>
 
 <section id="play-section">
-  <h2>实战演练</h2>
-  <p class="section-note">完整开局，红先。点子选中，再点目标点落子。</p>
+  <h2>跟教练下一局</h2>
+  <p class="section-note">你执红，教练执黑。教练会边下边讲：哪步好、哪步危险、下一步可以怎么走。</p>
   <div class="play-area">
     <div class="board-wrap" id="play-board"></div>
-    <div class="play-side">
-      <span class="turn-badge" id="turn-badge">红方走</span>
-      <ol>
-        <li>点击己方棋子，亮点是所有合法落点。</li>
-        <li>点亮点移动或吃子，换对方走。</li>
-        <li>吃掉对方帅（将）即获胜。</li>
-      </ol>
+    <div class="coach-panel">
+      <div class="coach-head">
+        <div class="coach-avatar">师</div>
+        <div>
+          <div class="who">棋教练</div>
+          <div class="status" id="coach-status">执黑 · 等你先走</div>
+        </div>
+      </div>
+      <div class="coach-msgs" id="coach-msgs"></div>
+      <div class="coach-actions">
+        <button id="btn-hint">提 示</button>
+        <button id="btn-undo">悔 棋</button>
+        <button id="btn-restart">重新开局</button>
+      </div>
     </div>
   </div>
 </section>
 
 </main>
 
-<footer>象棋入门 · 纯静态单页 · 规则引擎经 18 项测试验证</footer>
+<footer>象棋入门 · 纯静态单页 · 规则与 AI 引擎经测试驱动开发 · <a href="https://github.com/Tully-L/xiangqi-tutor">GitHub</a></footer>
 
 <script type="module">
 import { initialBoard, legalMoves } from './engine.js';
+import { bestMove, allMoves } from './ai.js';
 
 const CHARS = {
   red:   { general: '帅', advisor: '仕', elephant: '相', horse: '马', rook: '车', cannon: '炮', pawn: '兵' },
   black: { general: '将', advisor: '士', elephant: '象', horse: '马', rook: '车', cannon: '炮', pawn: '卒' },
 };
+const pieceName = p => (p.color === 'red' ? '红' : '黑') + CHARS[p.color][p.type];
 
 const CELL = 60, M = 42;
 const W = M * 2 + CELL * 8, H = M * 2 + CELL * 9;
@@ -256,7 +329,7 @@ function makeBoard(container, board, opts = {}) {
   const svg = container.querySelector('svg');
   const piecesG = svg.querySelector('.pieces');
   const hintsG = svg.querySelector('.hints');
-  const state = { board, selected: null };
+  const state = { board, selected: null, marks: [] };
 
   function render() {
     let ps = '';
@@ -273,6 +346,8 @@ function makeBoard(container, board, opts = {}) {
     }
     piecesG.innerHTML = ps;
     let hs = '';
+    for (const [x, y] of state.marks)
+      hs += `<circle cx="${px(x)}" cy="${py(y)}" r="30" fill="none" stroke="var(--hint)" stroke-width="3.5" stroke-dasharray="7 5"/>`;
     if (state.selected) {
       for (const [x, y] of legalMoves(state.board, ...state.selected)) {
         const capture = !!state.board[y][x];
@@ -285,6 +360,8 @@ function makeBoard(container, board, opts = {}) {
   }
 
   svg.addEventListener('click', e => {
+    if (opts.locked?.()) return;
+    state.marks = [];
     const t = e.target.closest('[data-x]');
     if (!t) { state.selected = null; render(); return; }
     const x = +t.dataset.x, y = +t.dataset.y;
@@ -292,18 +369,20 @@ function makeBoard(container, board, opts = {}) {
       const ok = legalMoves(state.board, ...state.selected).some(([mx, my]) => mx === x && my === y);
       if (ok) {
         const [sx, sy] = state.selected;
+        const moved = state.board[sy][sx];
         const captured = state.board[y][x];
-        state.board[y][x] = state.board[sy][sx];
+        state.board[y][x] = moved;
         state.board[sy][sx] = null;
         state.selected = null;
         render();
-        opts.onMove?.(state.board[y][x], captured);
+        opts.onMove?.(moved, captured, [sx, sy], [x, y]);
         return;
       }
     }
     const p = state.board[y][x];
     if (p && (!opts.canSelect || opts.canSelect(p))) {
       state.selected = [x, y];
+      opts.onSelect?.(p, x, y);
     } else {
       state.selected = null;
     }
@@ -312,7 +391,20 @@ function makeBoard(container, board, opts = {}) {
 
   render();
   return {
-    reset(newBoard) { state.board = newBoard; state.selected = null; render(); },
+    state,
+    render,
+    reset(newBoard) { state.board = newBoard; state.selected = null; state.marks = []; render(); },
+    mark(cells) { state.marks = cells; state.selected = null; render(); },
+    applyMove(from, to) {
+      const moved = state.board[from[1]][from[0]];
+      const captured = state.board[to[1]][to[0]];
+      state.board[to[1]][to[0]] = moved;
+      state.board[from[1]][from[0]] = null;
+      state.marks = [from, to];
+      state.selected = null;
+      render();
+      return { moved, captured };
+    },
   };
 }
 
@@ -325,37 +417,37 @@ makeBoard(document.getElementById('static-board'), initialBoard(), { canSelect: 
 // —— 七种棋子卡片 ——
 const DEMOS = [
   {
-    zi: '车', red: true, mnemonic: '车行直路',
+    zi: '车', mnemonic: '车行直路',
     desc: '横竖任意远，遇子即停，是敌子可吃。全场<b>威力最大</b>的子。',
     setup: () => put(put(E(), 4, 5, 'rook', 'red'), 4, 1, 'pawn', 'black'),
   },
   {
-    zi: '马', red: true, mnemonic: '马走日字',
+    zi: '马', mnemonic: '马走日字',
     desc: '走「日」字对角。紧邻的直线方向有子时<b>蹩马腿</b>，那两格去不了——试试看。',
     setup: () => put(put(E(), 4, 5, 'horse', 'red'), 4, 4, 'pawn', 'black'),
   },
   {
-    zi: '炮', red: true, mnemonic: '炮打隔子',
+    zi: '炮', mnemonic: '炮打隔子',
     desc: '不吃子时同车直行；吃子必须<b>隔一个炮架</b>，隔零个或两个都不行。',
     setup: () => put(put(put(E(), 4, 6, 'cannon', 'red'), 4, 3, 'pawn', 'black'), 4, 1, 'horse', 'black'),
   },
   {
-    zi: '相', red: true, mnemonic: '相走田字',
+    zi: '相', mnemonic: '相走田字',
     desc: '走「田」字对角，<b>不能过河</b>。田字中心有子时<b>塞象眼</b>，走不过去。',
     setup: () => put(put(E(), 4, 7, 'elephant', 'red'), 3, 6, 'pawn', 'black'),
   },
   {
-    zi: '仕', red: true, mnemonic: '仕走斜线',
+    zi: '仕', mnemonic: '仕走斜线',
     desc: '沿九宫斜线走一步，<b>不出九宫</b>，是帅的贴身护卫。',
     setup: () => put(E(), 4, 8, 'advisor', 'red'),
   },
   {
-    zi: '帅', red: true, mnemonic: '帅不出宫',
+    zi: '帅', mnemonic: '帅不出宫',
     desc: '横竖走一步，<b>不出九宫</b>。两帅不能在同一直线上照面（飞将）。',
     setup: () => put(put(put(E(), 4, 9, 'general', 'red'), 4, 0, 'general', 'black'), 4, 3, 'pawn', 'black'),
   },
   {
-    zi: '兵', red: true, mnemonic: '兵不回头',
+    zi: '兵', mnemonic: '兵不回头',
     desc: '过河前只能<b>直进一步</b>；过河后可进可横，<b>永远不能后退</b>。左右两个兵各试一下。',
     setup: () => put(put(E(), 2, 6, 'pawn', 'red'), 6, 4, 'pawn', 'red'),
   },
@@ -377,31 +469,140 @@ for (const d of DEMOS) {
   btn.addEventListener('click', () => api.reset(d.setup()));
 }
 
-// —— 实战演练 ——
-let turn = 'red';
-const badge = document.getElementById('turn-badge');
-function setTurn(t) {
-  turn = t;
-  badge.textContent = t === 'red' ? '红方走' : '黑方走';
-  badge.classList.toggle('black-turn', t === 'black');
+// —— 跟教练下一局 ——
+const msgsEl = document.getElementById('coach-msgs');
+const statusEl = document.getElementById('coach-status');
+const btnHint = document.getElementById('btn-hint');
+const btnUndo = document.getElementById('btn-undo');
+const btnRestart = document.getElementById('btn-restart');
+
+function say(html, tone = '') {
+  const div = document.createElement('div');
+  div.className = 'msg coach ' + tone;
+  div.innerHTML = html;
+  msgsEl.appendChild(div);
+  msgsEl.scrollTop = msgsEl.scrollHeight;
 }
-const playWrap = document.getElementById('play-board');
-const playApi = makeBoard(playWrap, initialBoard(), {
-  canSelect: p => p.color === turn,
-  onMove: (moved, captured) => {
-    if (captured?.type === 'general') {
-      badge.textContent = (moved.color === 'red' ? '红方' : '黑方') + '胜！';
-      setTimeout(() => { playApi.reset(initialBoard()); setTurn('red'); }, 1800);
-      return;
+
+const RULE_TIPS = {
+  rook: '<b>车</b>走直线，横竖随便跑，是你手里最强的子。',
+  horse: '<b>马</b>走「日」字。注意：紧邻方向有子会蹩马腿，跳不过去。',
+  cannon: '<b>炮</b>平时走直线；吃子必须隔一个「炮架」打过去。',
+  elephant: '<b>相</b>走「田」字，不能过河，是防守型棋子。',
+  advisor: '<b>仕</b>只能在九宫里斜走一步，贴身保护你的帅。',
+  general: '<b>帅</b>是你的命！只能在九宫里一步步挪，被吃就输了。',
+  pawn: '<b>兵</b>只能向前拱一步；过河后能左右横走，永远不能后退。',
+};
+
+let history = [];       // {from, to, moved, captured}
+let gameOver = false;
+let thinking = false;
+const tipsShown = new Set();
+
+function setStatus(t) { statusEl.textContent = t; }
+
+const play = makeBoard(document.getElementById('play-board'), initialBoard(), {
+  locked: () => thinking || gameOver,
+  canSelect: p => p.color === 'red',
+  onSelect: p => {
+    if (!tipsShown.has(p.type)) {
+      tipsShown.add(p.type);
+      say(RULE_TIPS[p.type]);
     }
-    setTurn(turn === 'red' ? 'black' : 'red');
+  },
+  onMove: (moved, captured, from, to) => {
+    history.push({ from, to, moved, captured });
+    if (captured) {
+      if (captured.type === 'general') return endGame('red');
+      say(`漂亮！你吃掉了我的<b>${CHARS.black[captured.type]}</b>。`, 'praise');
+    }
+    aiTurn();
   },
 });
-const playReset = document.createElement('button');
-playReset.className = 'reset-btn';
-playReset.textContent = '重新开局';
-playWrap.appendChild(playReset);
-playReset.addEventListener('click', () => { playApi.reset(initialBoard()); setTurn('red'); });
+
+function endGame(winner) {
+  gameOver = true;
+  setStatus(winner === 'red' ? '你赢了！' : '教练获胜');
+  say(winner === 'red'
+    ? '你赢了，我的将被吃掉了！<b>出师了</b>——去找真人下一局吧。'
+    : '这局我赢了。别灰心，点【重新开局】再来，你会越下越好。',
+    winner === 'red' ? 'praise' : 'warn');
+}
+
+function aiTurn() {
+  thinking = true;
+  setStatus('教练思考中…');
+  setTimeout(() => {
+    const m = bestMove(play.state.board, 'black', 3);
+    if (!m) { endGame('red'); thinking = false; return; }
+    const { moved, captured } = play.applyMove(m.from, m.to);
+    history.push({ from: m.from, to: m.to, moved, captured });
+    thinking = false;
+    if (captured?.type === 'general') return endGame('black');
+    if (captured) {
+      say(`我吃掉了你的<b>${CHARS.red[captured.type]}</b>。记住：落子前先看一眼，落点会不会被我吃掉。`, 'warn');
+    } else {
+      say(`我走了一步<b>${CHARS.black[moved.type]}</b>（虚线圈是我刚走的）。该你了。`);
+    }
+    warnThreat();
+    setStatus('执黑 · 该你走');
+  }, 350);
+}
+
+function warnThreat() {
+  // 教练预告下一步的捕获意图,教新手"看棋看三步"
+  const m = bestMove(play.state.board, 'black', 2);
+  if (!m) return;
+  const target = play.state.board[m.to[1]][m.to[0]];
+  if (target && target.color === 'red' && target.type !== 'pawn') {
+    say(`提醒：我正盯着你的<b>${CHARS.red[target.type]}</b>，要么保护它，要么把它挪开。`, 'warn');
+    play.state.marks = [...play.state.marks, [m.to[0], m.to[1]]];
+    play.render();
+  }
+}
+
+btnHint.addEventListener('click', () => {
+  if (thinking || gameOver) return;
+  let m, note;
+  if (history.length === 0) {
+    m = { from: [7, 7], to: [4, 7] };
+    note = '经典第一步<b>「当头炮」</b>：把炮架到中线，直指我的将。跟着虚线圈走。';
+  } else {
+    m = bestMove(play.state.board, 'red', 3);
+    if (!m) return;
+    const target = play.state.board[m.to[1]][m.to[0]];
+    note = target
+      ? `看好了：这步<b>${CHARS.red[play.state.board[m.from[1]][m.from[0]].type]}</b>能吃掉我的<b>${CHARS.black[target.type]}</b>，白赚！`
+      : `试试把<b>${CHARS.red[play.state.board[m.from[1]][m.from[0]].type]}</b>走到虚线圈的位置——展开子力，控制更多路线。`;
+  }
+  say(note);
+  play.mark([m.from, m.to]);
+});
+
+btnUndo.addEventListener('click', () => {
+  if (thinking || history.length < 2 || gameOver) return;
+  for (let i = 0; i < 2; i++) {
+    const h = history.pop();
+    play.state.board[h.from[1]][h.from[0]] = h.moved;
+    play.state.board[h.to[1]][h.to[0]] = h.captured;
+  }
+  play.state.marks = [];
+  play.state.selected = null;
+  play.render();
+  say('好，悔一步。刚才那步我们重新想——不确定就点【提示】。');
+});
+
+btnRestart.addEventListener('click', () => {
+  history = [];
+  gameOver = false;
+  thinking = false;
+  play.reset(initialBoard());
+  setStatus('执黑 · 等你先走');
+  say('重新开局。你执红先走，这次试试自己布局！');
+});
+
+say('你好，我是你的棋教练，这局你执<b>红</b>，我执黑。你先走。');
+say('不知道动哪个？点下面的【<b>提示</b>】，我把好棋指给你看；走错了还可以【悔棋】。');
 </script>
 
 </body>
