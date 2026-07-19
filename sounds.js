@@ -56,7 +56,6 @@ export const sfx = {
   move() { thock(240, 130, 0.1, 0.25); },
   capture() { thock(500, 180, 0.13, 0.3); thock(240, 110, 0.09, 0.2, 0.05); },
   warn() { pluck(440, 0, 0.25, 0.09); pluck(415.3, 0.13, 0.35, 0.09); },
-  praise() { pluck(659.25, 0, 0.3, 0.07); pluck(880, 0.09, 0.45, 0.07); },
   win() { [523.25, 587.33, 659.25, 783.99, 1046.5].forEach((f, i) => pluck(f, i * 0.11, 0.9, 0.09)); },
   lose() { [392, 329.63, 261.63].forEach((f, i) => pluck(f, i * 0.16, 0.7, 0.08)); },
 };
@@ -67,7 +66,6 @@ let mTimer = null;
 let idx = 4;
 
 export const music = {
-  get playing() { return !!mTimer; },
   toggle() {
     if (mTimer) {
       clearInterval(mTimer);
